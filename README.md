@@ -47,3 +47,13 @@ PREDICTION_MAX_DATE=2035-12-31
 ```sh
 uv run pytest
 ```
+
+## Deploy to Render
+
+1. Push this project to a GitHub repository.
+2. In Render, select **New → Blueprint** and select that repository.
+3. Render reads `render.yaml`, builds the Docker image, and uses `/health` for
+   health checks.
+4. Once deployment completes, open `https://<your-service>.onrender.com/docs`.
+
+The container reads Render's `PORT` environment variable automatically.
