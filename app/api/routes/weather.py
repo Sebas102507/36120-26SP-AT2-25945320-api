@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+import logging
 from typing import List
 
 from core.config import (
@@ -14,8 +15,10 @@ from models.weather import (
     ModelMetadata,
     ProjectOverview,
 )
+from services.comfort_climate import WeatherDataError
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 DATE_FORMAT = "%Y-%m-%d"
 FEATURES = [
@@ -104,16 +107,20 @@ async def predict_comfort_climate(
     date: str = Query(..., description="Forecast base date (YYYY-MM-DD)"),
 ) -> ForecastResponse:
     input_date = parse_forecast_date(date)
+    logger.info("Received comfort_climate prediction request for %s", input_date)
     require_models_ready(request)
-    dummy_values = (72, 76, 81)
+    predictor = request.app.state.cci_predictor
+    try:
+        predictions = predictor.predict(input_date)
+    except WeatherDataError as error:
+        logger.warning("CCI prediction failed for %s: %s", input_date, error)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from error
     return ForecastResponse(
         input_date=input_date,
-        predictions={
-            "comfort_climate": {
-                (input_date + timedelta(days=offset)).isoformat(): value
-                for offset, value in enumerate(dummy_values, start=1)
-            }
-        },
+        predictions={"comfort_climate": predictions},
     )
 
 
@@ -139,23 +146,12 @@ async def predict_weather_hazard(
 
 
 @router.get("/model-metadata", response_model=List[ModelMetadata], tags=["models"])
-async def model_metadata() -> List[ModelMetadata]:
+async def model_metadata(request: Request) -> List[ModelMetadata]:
+    manifest = getattr(request.app.state, "cci_manifest", None)
+    metadata = getattr(request.app.state, "cci_metadata", None)
+    cci_model = _cci_model_metadata(manifest, metadata)
     return [
-        ModelMetadata(
-            target="comfort_climate",
-            prediction_type="regression",
-            algorithm="Random Forest Regressor",
-            forecast_horizon="D+1 to D+3",
-            feature_list=FEATURES,
-            feature_importances={
-                "temperature": 0.34,
-                "humidity": 0.25,
-                "wind_speed": 0.16,
-                "precipitation": 0.14,
-                "pressure": 0.11,
-            },
-            performance_metrics={"rmse": 5.8, "mae": 4.3},
-        ),
+        cci_model,
         ModelMetadata(
             target="weather_hazard",
             prediction_type="multiclass classification",
@@ -172,3 +168,37 @@ async def model_metadata() -> List[ModelMetadata]:
             performance_metrics={"accuracy": 0.84, "macro_f1": 0.79},
         ),
     ]
+
+
+def _cci_model_metadata(
+    manifest: dict | None, metadata: dict | None
+) -> ModelMetadata:
+    """Translate the selected experiment bundle into the API metadata schema."""
+    if not manifest or not metadata:
+        return ModelMetadata(
+            target="comfort_climate",
+            prediction_type="regression",
+            algorithm="Unavailable",
+            forecast_horizon="D+1 to D+3",
+            feature_list=[],
+            feature_importances={},
+            performance_metrics={},
+        )
+    horizons = manifest.get("horizons_days", [1, 2, 3])
+    feature_list = metadata.get("sequence_features") or metadata.get("feature_columns", [])
+    validation = metadata.get("validation_metrics", {})
+    metric_names = ("mae", "rmse")
+    metrics = {
+        name: sum(values[name] for values in validation.values()) / len(validation)
+        for name in metric_names
+        if validation and all(name in values for values in validation.values())
+    }
+    return ModelMetadata(
+        target=str(manifest["target"]),
+        prediction_type=str(metadata.get("prediction_type", "regression")),
+        algorithm=str(metadata.get("architecture") or metadata.get("algorithm", "Unknown")),
+        forecast_horizon=f"D+{horizons[0]} to D+{horizons[-1]}",
+        feature_list=feature_list,
+        feature_importances={},
+        performance_metrics=metrics,
+    )

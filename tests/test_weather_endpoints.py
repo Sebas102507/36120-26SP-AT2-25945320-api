@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 sys.path.append(str(Path(__file__).resolve().parents[1] / "app"))
 
 from main import get_application
+from services.comfort_climate import WeatherDataError
 
 
 def test_legacy_route_is_disabled_and_swagger_is_available():
@@ -32,21 +33,27 @@ def test_project_overview_and_health_are_available():
 
 
 def test_comfort_climate_forecast_returns_d1_through_d3():
-    client = TestClient(get_application())
+    app = get_application()
+    with TestClient(app) as client:
+        app.state.cci_predictor.predict = lambda _: {
+            "2025-01-02": 72,
+            "2025-01-03": 76,
+            "2025-01-04": 81,
+        }
 
-    response = client.get("/predict/index/comfort_climate?date=2025-01-01")
+        response = client.get("/predict/index/comfort_climate?date=2025-01-01")
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "input_date": "2025-01-01",
-        "predictions": {
-            "comfort_climate": {
-                "2025-01-02": 72,
-                "2025-01-03": 76,
-                "2025-01-04": 81,
-            }
-        },
-    }
+        assert response.status_code == 200
+        assert response.json() == {
+            "input_date": "2025-01-01",
+            "predictions": {
+                "comfort_climate": {
+                    "2025-01-02": 72,
+                    "2025-01-03": 76,
+                    "2025-01-04": 81,
+                }
+            },
+        }
 
 
 def test_weather_hazard_forecast_returns_d7_label():
@@ -85,16 +92,30 @@ def test_prediction_returns_503_when_models_are_unavailable():
         assert "Prediction models are unavailable" in response.json()["detail"]
 
 
+def test_comfort_climate_returns_502_when_weather_data_is_unavailable():
+    app = get_application()
+    with TestClient(app) as client:
+        def unavailable(_):
+            raise WeatherDataError("Open-Meteo observations could not be retrieved.")
+
+        app.state.cci_predictor.predict = unavailable
+        response = client.get("/predict/index/comfort_climate?date=2025-01-01")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Open-Meteo observations could not be retrieved."
+
+
 def test_model_metadata_describes_both_targets():
-    client = TestClient(get_application())
+    app = get_application()
+    with TestClient(app) as client:
+        response = client.get("/model-metadata")
 
-    response = client.get("/model-metadata")
-
-    assert response.status_code == 200
-    models = response.json()
-    assert {model["target"] for model in models} == {
-        "comfort_climate",
-        "weather_hazard",
-    }
-    assert {"rmse", "mae"} <= models[0]["performance_metrics"].keys()
-    assert {"accuracy", "macro_f1"} <= models[1]["performance_metrics"].keys()
+        assert response.status_code == 200
+        models = response.json()
+        assert {model["target"] for model in models} == {
+            "comfort_climate",
+            "weather_hazard",
+        }
+        assert models[0]["algorithm"] == "LSTM"
+        assert {"rmse", "mae"} <= models[0]["performance_metrics"].keys()
+        assert {"accuracy", "macro_f1"} <= models[1]["performance_metrics"].keys()
