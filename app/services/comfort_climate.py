@@ -195,9 +195,7 @@ class ComfortClimatePredictor:
             logger.info("Built CCI sequence input with shape %s", model_input.shape)
             return model_input
         if self.input_kind == "tabular":
-            model_input = self._build_tabular_features(enriched).loc[:, self.feature_columns].to_numpy(
-                dtype=np.float32
-            )
+            model_input = self._build_tabular_features(enriched).loc[:, self.feature_columns]
             logger.info("Built CCI tabular input with shape %s", model_input.shape)
             return model_input
         raise ValueError(f"Unsupported CCI input kind: {self.input_kind}")
@@ -244,12 +242,19 @@ class ComfortClimatePredictor:
             "precipitation",
             "wind_gusts_10m",
             "cci",
+            "whi",
         )
         for column in lag_columns:
             for lag in (1, 2, 3, 7):
                 result[f"{column}_lag{lag}"] = result[column].shift(lag)
 
-        for column in ("temperature_2m", "relative_humidity_2m", "cloud_cover", "cci"):
+        for column in (
+            "temperature_2m",
+            "relative_humidity_2m",
+            "cloud_cover",
+            "cci",
+            "whi",
+        ):
             for window in (3, 7, 14, 30):
                 rolled = result[column].rolling(window=window, min_periods=window)
                 result[f"{column}_roll{window}_mean"] = rolled.mean()
@@ -267,6 +272,8 @@ class ComfortClimatePredictor:
         result["temperature_2m_delta3"] = result["temperature_2m"].diff(3)
         result["cci_delta1"] = result["cci"].diff(1)
         result["cci_delta3"] = result["cci"].diff(3)
+        result["whi_delta1"] = result["whi"].diff(1)
+        result["whi_delta3"] = result["whi"].diff(3)
         if result.iloc[-1].isna().any():
             raise WeatherDataError("Insufficient observations for the configured CCI feature window.")
         return result.iloc[[-1]]
@@ -287,6 +294,16 @@ class ComfortClimatePredictor:
             + 0.15 * result["wind_score"]
             + 0.15 * result["cloud_score"]
             + 0.15 * result["rain_score"]
+        )
+        result["rain_hazard"] = (result["precipitation"] / 30).clip(upper=1)
+        result["wind_hazard"] = (result["wind_gusts_10m"] / 100).clip(upper=1)
+        result["cloud_hazard"] = (result["cloud_cover"] / 100).clip(upper=1)
+        result["temp_hazard"] = ((result["temperature_2m"] - 22).abs() / 25).clip(upper=1)
+        result["whi"] = 100 * (
+            0.30 * result["rain_hazard"]
+            + 0.30 * result["wind_hazard"]
+            + 0.20 * result["cloud_hazard"]
+            + 0.10 * result["temp_hazard"]
         )
         return result
 

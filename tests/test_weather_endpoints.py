@@ -57,14 +57,16 @@ def test_comfort_climate_forecast_returns_d1_through_d3():
 
 
 def test_weather_hazard_forecast_returns_d7_label():
-    client = TestClient(get_application())
+    app = get_application()
+    with TestClient(app) as client:
+        app.state.whc_predictor.predict = lambda _: {"2025-01-08": "Moderate Risk"}
 
-    response = client.get("/predict/category/weather_hazard?date=2025-01-01")
+        response = client.get("/predict/category/weather_hazard?date=2025-01-01")
 
-    assert response.status_code == 200
-    assert response.json()["predictions"]["weather_hazard"] == {
-        "2025-01-08": "Moderate Risk"
-    }
+        assert response.status_code == 200
+        assert response.json()["predictions"]["weather_hazard"] == {
+            "2025-01-08": "Moderate Risk"
+        }
 
 
 def test_prediction_date_errors_are_clear():
@@ -116,6 +118,6 @@ def test_model_metadata_describes_both_targets():
             "comfort_climate",
             "weather_hazard",
         }
-        assert models[0]["algorithm"] == "LSTM"
+        assert models[0]["algorithm"] == "Polynomial Ridge Regression"
         assert {"rmse", "mae"} <= models[0]["performance_metrics"].keys()
         assert {"accuracy", "macro_f1"} <= models[1]["performance_metrics"].keys()

@@ -62,6 +62,14 @@ def require_models_ready(request: Request) -> None:
         )
 
 
+def require_weather_hazard_model(request: Request) -> None:
+    if not getattr(request.app.state, "weather_hazard_model_ready", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Weather hazard prediction model is unavailable. Please try again later.",
+        )
+
+
 @router.get("/", response_model=ProjectOverview, tags=["project"])
 async def project_overview() -> ProjectOverview:
     return ProjectOverview(
@@ -134,14 +142,19 @@ async def predict_weather_hazard(
     date: str = Query(..., description="Forecast base date (YYYY-MM-DD)"),
 ) -> ForecastResponse:
     input_date = parse_forecast_date(date)
-    require_models_ready(request)
+    require_weather_hazard_model(request)
+    predictor = request.app.state.whc_predictor
+    try:
+        predictions = predictor.predict(input_date)
+    except WeatherDataError as error:
+        logger.warning("WHC prediction failed for %s: %s", input_date, error)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from error
     return ForecastResponse(
         input_date=input_date,
-        predictions={
-            "weather_hazard": {
-                (input_date + timedelta(days=7)).isoformat(): "Moderate Risk"
-            }
-        },
+        predictions={"weather_hazard": predictions},
     )
 
 
@@ -187,6 +200,12 @@ def _cci_model_metadata(
     horizons = manifest.get("horizons_days", [1, 2, 3])
     feature_list = metadata.get("sequence_features") or metadata.get("feature_columns", [])
     validation = metadata.get("validation_metrics", {})
+    if not validation:
+        validation = {
+            model["target_column"]: model["validation_metrics"]
+            for model in metadata.get("models", [])
+            if "target_column" in model and "validation_metrics" in model
+        }
     metric_names = ("mae", "rmse")
     metrics = {
         name: sum(values[name] for values in validation.values()) / len(validation)

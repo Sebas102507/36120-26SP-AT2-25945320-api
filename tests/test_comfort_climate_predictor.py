@@ -41,20 +41,20 @@ def predictor() -> ComfortClimatePredictor:
     return ComfortClimatePredictor.from_model_directory(MODEL_DIR)
 
 
-def test_predictor_fetches_14_days_and_returns_d1_through_d3(monkeypatch, predictor):
+def test_predictor_fetches_required_history_and_returns_d1_through_d3(monkeypatch, predictor):
     requested_params = {}
 
     def fake_get(url, params, timeout):
         requested_params.update(params)
-        return FakeResponse(complete_hourly_payload("2025-01-01"))
+        return FakeResponse(complete_hourly_payload("2025-01-01", periods=30 * 24))
 
     monkeypatch.setattr("app.services.comfort_climate.requests.get", fake_get)
 
-    result = predictor.predict(date(2025, 1, 14))
+    result = predictor.predict(date(2025, 1, 30))
 
     assert requested_params["start_date"] == "2025-01-01"
-    assert requested_params["end_date"] == "2025-01-14"
-    assert result.keys() == {"2025-01-15", "2025-01-16", "2025-01-17"}
+    assert requested_params["end_date"] == "2025-01-30"
+    assert result.keys() == {"2025-01-31", "2025-02-01", "2025-02-02"}
     assert all(0 <= value <= 100 for value in result.values())
 
 
