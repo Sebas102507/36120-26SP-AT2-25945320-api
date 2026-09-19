@@ -42,6 +42,9 @@ nucleus-ml = { index = "testpypi" }
 [tool.pytest.ini_options]
 pythonpath = ["app"]
 testpaths = ["tests"]
+markers = [
+    "api: integration tests that call a running API over HTTP (make test-api; skipped if unreachable)",
+]
 
 [tool.black]
 line-length = 100
