@@ -261,7 +261,7 @@ app/
     ├── features.py          FeatureService (pipeline + Open-Meteo) and bundle loader
     ├── comfort_climate.py   CCI predictor (+1, +2, +3 days)
     └── weather_hazard.py    WHC predictor (+7 days)
-models/                      production model artefacts (below)
+models/                      production model artefacts (layout in models/README.md)
 tests/                       endpoint and service tests (no network or artefacts needed)
 Dockerfile                   the production image (used by Render)
 docker-compose.yml           local Docker run with live reload

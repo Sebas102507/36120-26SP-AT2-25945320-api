@@ -27,7 +27,7 @@ artefacts:
 		(echo "Run the cci_comparison notebook first." && exit 1)
 	@test -d $(EXPERIMENTS)/models/weather_hazard/production || \
 		(echo "Run the whc_comparison notebook first." && exit 1)
-	rm -rf $(MODEL_DIR)
+	rm -rf $(MODEL_DIR)/preprocessing $(MODEL_DIR)/comfort_climate $(MODEL_DIR)/weather_hazard
 	mkdir -p $(MODEL_DIR)
 	cp -R $(EXPERIMENTS)/models/preprocessing $(MODEL_DIR)/preprocessing
 	cp -R $(EXPERIMENTS)/models/comfort_climate/production $(MODEL_DIR)/comfort_climate
