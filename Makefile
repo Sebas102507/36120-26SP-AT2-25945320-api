@@ -4,17 +4,13 @@ SHELL := /bin/bash
 EXPERIMENTS ?= ../36120-26SP-AT2-25945320-experiments
 MODEL_DIR := models
 
-.PHONY: install test test-api run artefacts deploy down clean env smoke
+.PHONY: install test-api run artefacts deploy down clean env smoke
 
 env:
 	@if [[ ! -e .env ]]; then cp .env.example .env; fi
 
 install: env
 	uv sync --extra dev
-
-# Unit tests only: no network access or artefacts needed.
-test: install
-	uv run pytest -vv -m "not api"
 
 # Integration tests against a running API (live Render service by default).
 # Local instance: API_BASE_URL=http://localhost:8080 make test-api

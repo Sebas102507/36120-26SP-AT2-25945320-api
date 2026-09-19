@@ -8,9 +8,8 @@ Render deployment; point them elsewhere with ``API_BASE_URL``::
     API_BASE_URL=http://localhost:8080 make test-api           # local instance (make run)
     uv run pytest tests/test_api.py -v                         # the same, without make
 
-They are separate from the unit tests: ``make test`` runs only the unit tests (``-m "not api"``),
-which need neither network access nor artefacts. If the service cannot be reached, every test
-here is skipped; ``make test-api`` sets ``API_TESTS_REQUIRED=1`` to turn that into a failure.
+If the service cannot be reached, the tests are skipped by default. ``make test-api`` sets
+``API_TESTS_REQUIRED=1`` so an unreachable service instead fails the test run.
 
 The free Render instance sleeps when idle, so the first request waits up to two minutes for it to
 wake. Prediction responses are fetched once per date and shared between tests. Sample dates are

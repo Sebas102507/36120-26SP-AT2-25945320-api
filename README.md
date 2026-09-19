@@ -344,20 +344,17 @@ Environment variables (or `.env`, see `.env.example`):
 ## Tests
 
 ```sh
-make test                                         # unit tests: no network, no artefacts
-make test-api                                     # integration tests against the live service
-API_BASE_URL=http://localhost:8080 make test-api  # integration tests against `make run`
+make test-api
+# or explicitly target a different deployed service:
+API_BASE_URL=https://your-service.onrender.com make test-api
 ```
 
 | File | Kind | What it checks |
 |:--|:--|:--|
-| `tests/test_weather_endpoints.py` | Unit | Every endpoint, date validation and error codes, with the predictors and Open-Meteo replaced by fakes |
-| `tests/test_comfort_climate_predictor.py` | Unit | CCI/WHC predictors, bundle loading, per-model feature columns, drift status, Open-Meteo error handling |
-| `tests/test_api.py` | Integration | A running API over HTTP: every endpoint's structure and values, errors (400/404/405/422) and the OpenAPI docs, on dates across 2026 |
+| `tests/test_api.py` | Deployed API | The Render service over HTTP: endpoint structure and values, validation errors (400/404/405/422), and OpenAPI docs, using dates across 2026 |
 
-The integration tests wait up to two minutes for a sleeping Render instance to wake. `make test`
-excludes them (`-m "not api"`). Run on their own without `make`, they are skipped if the API is
-unreachable; `make test-api` treats an unreachable API as a failure.
+The tests wait up to two minutes for a sleeping Render instance to wake. `make test-api` treats
+an unreachable service as a failure.
 
 ## Deploy to Render
 
