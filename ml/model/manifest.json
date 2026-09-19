@@ -1,16 +1,11 @@
 {
-  "version": 1,
-  "target": "comfort_climate",
-  "experiment": "cci_polynomial_regression",
+  "experiment": "whc_random_forest",
+  "task": "weather_hazard",
+  "prediction_type": "classification",
   "model_family": "sklearn",
-  "adapter": "joblib",
-  "input_kind": "tabular",
-  "model_files": [
-    "cci_model_h1.joblib",
-    "cci_model_h2.joblib",
-    "cci_model_h3.joblib"
-  ],
-  "metadata_file": "cci_model_metadata.json",
+  "model_files": {
+    "7": "whc_random_forest_h7.joblib"
+  },
   "feature_columns": [
     "temperature_2m",
     "relative_humidity_2m",
@@ -118,14 +113,6 @@
     "doy_sin",
     "doy_cos"
   ],
-  "history_days": 30,
-  "lookback_days": 30,
-  "horizons_days": [
-    1,
-    2,
-    3
-  ],
-  "target_inversion": {
-    "type": "none"
-  }
+  "feature_column_order_is_significant": true,
+  "history_days": 30
 }
