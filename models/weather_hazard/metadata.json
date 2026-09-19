@@ -1,0 +1,106 @@
+{
+  "experiment": "whc_random_forest",
+  "student_name": "Juan Vargas T.",
+  "student_id": "25945320",
+  "target": "Weather Hazard Category",
+  "algorithm": "Random Forest Classifier",
+  "prediction_type": "classification",
+  "feature_columns": [
+    "whi",
+    "precipitation_roll3_sum",
+    "precipitation_roll7_sum",
+    "precipitation_roll14_sum",
+    "precipitation_roll30_sum",
+    "temperature_2m_delta1",
+    "temperature_2m_delta3",
+    "cci_delta1",
+    "cci_delta3",
+    "whi_delta1",
+    "whi_delta3"
+  ],
+  "feature_column_order_is_significant": true,
+  "split_boundaries": {
+    "test_start": "2025-01-01",
+    "production_cutoff": "2026-01-01"
+  },
+  "embargo_days": 7,
+  "evaluated_on": [
+    "walk-forward CV on the development split",
+    "test (once, after selection)"
+  ],
+  "held_out": [],
+  "models": [
+    {
+      "target": "Weather Hazard Category",
+      "target_column": "whc_t7",
+      "prediction_type": "classification",
+      "algorithm": "Random Forest Classifier",
+      "forecast_horizon": "7 Days",
+      "hyperparameters": {
+        "n_estimators": 500,
+        "max_depth": 10,
+        "min_samples_leaf": 11,
+        "min_samples_split": 21,
+        "max_features": 0.6673398348012853,
+        "class_weight": "balanced_subsample"
+      },
+      "features": [
+        "whi",
+        "precipitation_roll3_sum",
+        "precipitation_roll7_sum",
+        "precipitation_roll14_sum",
+        "precipitation_roll30_sum",
+        "temperature_2m_delta1",
+        "temperature_2m_delta3",
+        "cci_delta1",
+        "cci_delta3",
+        "whi_delta1",
+        "whi_delta3"
+      ],
+      "feature_importance": {
+        "cci_delta1": 0.13788515031313026,
+        "temperature_2m_delta1": 0.11780472534510439,
+        "precipitation_roll14_sum": 0.10113843982194694,
+        "whi": 0.09785686586785529,
+        "temperature_2m_delta3": 0.0962266473586672,
+        "whi_delta3": 0.08907786845288451,
+        "precipitation_roll30_sum": 0.08798121532211588,
+        "whi_delta1": 0.08036207246242338,
+        "precipitation_roll7_sum": 0.07948381931114322,
+        "cci_delta3": 0.06911453602260358,
+        "precipitation_roll3_sum": 0.04306865972212554
+      },
+      "validation_metrics": {
+        "accuracy": 0.4815068493150685,
+        "balanced_accuracy": 0.29437965988531656,
+        "macro_f1": 0.24890342024934514,
+        "weighted_f1": 0.4748435128091721,
+        "mean_ordinal_error": 0.547945205479452,
+        "train_macro_f1": 0.9058854867068146
+      },
+      "test_metrics": {
+        "accuracy": 0.4860335195530726,
+        "balanced_accuracy": 0.25203903550949175,
+        "macro_f1": 0.24578766423854587,
+        "weighted_f1": 0.47304285766987875,
+        "mean_ordinal_error": 0.547486033519553,
+        "predicted_classes": 3
+      }
+    }
+  ],
+  "class_labels": {
+    "0": "Low Risk",
+    "1": "Moderate Risk",
+    "2": "High Risk",
+    "3": "Extreme Risk"
+  },
+  "selection": "optuna (TPE) on 4-fold walk-forward CV; hyperparameters tuned on all features; feature families selected with settings fixed, then re-tuned",
+  "selection_metric": "mean macro_f1 over the walk-forward CV folds",
+  "validation_metrics_are": "means over the walk-forward CV folds",
+  "fixed_params": {
+    "n_jobs": -1
+  },
+  "trained_on": [
+    "train (development split)"
+  ]
+}

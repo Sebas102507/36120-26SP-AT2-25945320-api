@@ -1,0 +1,39 @@
+{
+  "experiment": "whc_random_forest",
+  "task": "weather_hazard",
+  "prediction_type": "classification",
+  "model_family": "sklearn",
+  "model_files": {
+    "7": "whc_random_forest_h7.joblib"
+  },
+  "model_features": {
+    "7": [
+      "whi",
+      "precipitation_roll3_sum",
+      "precipitation_roll7_sum",
+      "precipitation_roll14_sum",
+      "precipitation_roll30_sum",
+      "temperature_2m_delta1",
+      "temperature_2m_delta3",
+      "cci_delta1",
+      "cci_delta3",
+      "whi_delta1",
+      "whi_delta3"
+    ]
+  },
+  "feature_columns": [
+    "whi",
+    "precipitation_roll3_sum",
+    "precipitation_roll7_sum",
+    "precipitation_roll14_sum",
+    "precipitation_roll30_sum",
+    "temperature_2m_delta1",
+    "temperature_2m_delta3",
+    "cci_delta1",
+    "cci_delta3",
+    "whi_delta1",
+    "whi_delta3"
+  ],
+  "feature_column_order_is_significant": true,
+  "history_days": 30
+}

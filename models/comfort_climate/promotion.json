@@ -1,0 +1,302 @@
+{
+  "promoted_at": "2026-09-19T03:22:15.183851+00:00",
+  "student_name": "Juan Vargas T.",
+  "student_id": "25945320",
+  "task": "comfort_climate",
+  "target": "Climate Comfort Index",
+  "selected_experiment": "cci_random_forest",
+  "pipeline": {
+    "1-2 experiments": "baselines, ablation and hyperparameter tuning on all features, scored by walk-forward CV on the development split",
+    "3 shortlist": "best tuned algorithms by mean CV mae",
+    "4 feature selection": "optuna (TPE) on 4-fold walk-forward CV; hyperparameters tuned on all features; feature families selected with settings fixed, then re-tuned",
+    "5 champion": "best mean mae over the walk-forward CV folds",
+    "6 final fit": "chosen configuration refitted on all development data",
+    "7 test": "scored once, after the champion was fixed",
+    "8 deploy": "production bundle with a drift reference for monitoring"
+  },
+  "screening_ranking": [
+    {
+      "experiment": "cci_polynomial_regression",
+      "cci_t1": 6.312149939493697,
+      "cci_t2": 7.33648896277411,
+      "cci_t3": 7.535877873441644,
+      "score": 7.06150559190315,
+      "is_baseline": false
+    },
+    {
+      "experiment": "cci_random_forest",
+      "cci_t1": 6.308964922542257,
+      "cci_t2": 7.354718434802906,
+      "cci_t3": 7.558932128023795,
+      "score": 7.074205161789653,
+      "is_baseline": false
+    },
+    {
+      "experiment": "cci_xgboost",
+      "cci_t1": 6.321681342227975,
+      "cci_t2": 7.359067075322908,
+      "cci_t3": 7.585639552062662,
+      "score": 7.0887959898711825,
+      "is_baseline": false
+    },
+    {
+      "experiment": "climatology",
+      "cci_t1": 7.830919464520633,
+      "cci_t2": 7.831336352646222,
+      "cci_t3": 7.829553418997829,
+      "score": 7.830603078721562,
+      "is_baseline": true
+    },
+    {
+      "experiment": "cci_dummy_mean",
+      "cci_t1": 8.340081272721992,
+      "cci_t2": 8.3452729010502,
+      "cci_t3": 8.34681188971463,
+      "score": 8.344055354495607,
+      "is_baseline": false
+    },
+    {
+      "experiment": "persistence",
+      "cci_t1": 7.2395020337006155,
+      "cci_t2": 9.069497396763948,
+      "cci_t3": 9.9166604396218,
+      "score": 8.741886623362122,
+      "is_baseline": true
+    },
+    {
+      "experiment": "cci_mlp",
+      "cci_t1": 7.931770456521112,
+      "cci_t2": 9.253271748784066,
+      "cci_t3": 9.452444200318107,
+      "score": 8.879162135207762,
+      "is_baseline": false
+    }
+  ],
+  "shortlist": [
+    {
+      "experiment": "cci_polynomial_regression",
+      "screening_score": 7.06150559190315,
+      "status": "shortlisted"
+    },
+    {
+      "experiment": "cci_random_forest",
+      "screening_score": 7.074205161789653,
+      "status": "shortlisted"
+    },
+    {
+      "experiment": "cci_xgboost",
+      "screening_score": 7.0887959898711825,
+      "status": "shortlisted"
+    },
+    {
+      "experiment": "cci_dummy_mean",
+      "screening_score": 8.344055354495607,
+      "status": "excluded: null model"
+    },
+    {
+      "experiment": "cci_mlp",
+      "screening_score": 8.879162135207762,
+      "status": "not shortlisted"
+    }
+  ],
+  "refinement_ranking": [
+    {
+      "experiment": "cci_random_forest",
+      "cci_t1": 6.405517947038611,
+      "cci_t2": 7.395426732199275,
+      "cci_t3": 7.690343388724514,
+      "score": 7.163762689320801,
+      "typical_fold_std": 0.2869542406405271,
+      "mean_features": 41.666666666666664
+    },
+    {
+      "experiment": "cci_xgboost",
+      "cci_t1": 6.518756655987696,
+      "cci_t2": 7.583956860532112,
+      "cci_t3": 7.813515504587342,
+      "score": 7.305409673702383,
+      "typical_fold_std": 0.2904015522897841,
+      "mean_features": 11.0
+    },
+    {
+      "experiment": "cci_polynomial_regression",
+      "cci_t1": 6.5135412437123925,
+      "cci_t2": 7.955393998065938,
+      "cci_t3": 8.099054052527107,
+      "score": 7.5226630981018126,
+      "typical_fold_std": 0.36685840535351516,
+      "mean_features": 11.0
+    }
+  ],
+  "runner_up": "cci_xgboost",
+  "margin_over_runner_up": 0.14164698438158219,
+  "typical_fold_std": 0.2869542406405271,
+  "refined_configuration": [
+    {
+      "target": "cci_t1",
+      "cv_mean": 6.405517947038611,
+      "cv_std": 0.16830753665934675,
+      "fold_scores": [
+        6.3729,
+        6.6241,
+        6.2155,
+        6.4095
+      ],
+      "n_features": 47,
+      "dropped_families": [
+        "same_day_observations",
+        "same_day_indices",
+        "lags",
+        "rolling_precipitation",
+        "rolling_gusts",
+        "seasonal"
+      ],
+      "retuned": false,
+      "best_params": {
+        "n_estimators": 400,
+        "max_depth": 16,
+        "min_samples_leaf": 13,
+        "min_samples_split": 12,
+        "max_features": 0.4443804469324341
+      }
+    },
+    {
+      "target": "cci_t2",
+      "cv_mean": 7.395426732199275,
+      "cv_std": 0.31712778615495035,
+      "fold_scores": [
+        7.3641,
+        7.817,
+        7.3534,
+        7.0472
+      ],
+      "n_features": 61,
+      "dropped_families": [
+        "same_day_observations",
+        "lags",
+        "deltas"
+      ],
+      "retuned": false,
+      "best_params": {
+        "n_estimators": 600,
+        "max_depth": 6,
+        "min_samples_leaf": 3,
+        "min_samples_split": 3,
+        "max_features": 0.26234293994495705
+      }
+    },
+    {
+      "target": "cci_t3",
+      "cv_mean": 7.690343388724514,
+      "cv_std": 0.37542739910728423,
+      "fold_scores": [
+        7.5747,
+        8.2445,
+        7.415,
+        7.5272
+      ],
+      "n_features": 17,
+      "dropped_families": [
+        "same_day_indices",
+        "lags",
+        "rolling_statistics",
+        "deltas"
+      ],
+      "retuned": false,
+      "best_params": {
+        "n_estimators": 150,
+        "max_depth": 10,
+        "min_samples_leaf": 1,
+        "min_samples_split": 31,
+        "max_features": 0.06311733016755355
+      }
+    }
+  ],
+  "test_metrics": [
+    {
+      "target": "cci_t1",
+      "experiment": "cci_random_forest",
+      "is_baseline": false,
+      "mae": 6.792721711322044,
+      "rmse": 8.98531208890726,
+      "r2": 0.4129775282838344,
+      "pred_std": 6.847617877665817
+    },
+    {
+      "target": "cci_t2",
+      "experiment": "cci_random_forest",
+      "is_baseline": false,
+      "mae": 7.736551117925149,
+      "rmse": 10.083086625833522,
+      "r2": 0.26259221804557775,
+      "pred_std": 5.10792977195405
+    },
+    {
+      "target": "cci_t3",
+      "experiment": "cci_random_forest",
+      "is_baseline": false,
+      "mae": 8.16249807159086,
+      "rmse": 10.553608763834008,
+      "r2": 0.19165269716550726,
+      "pred_std": 3.4355940003678023
+    },
+    {
+      "target": "cci_t1",
+      "experiment": "persistence",
+      "is_baseline": true,
+      "mae": 7.721525807710784,
+      "rmse": 10.08757160042978,
+      "r2": 0.2601193745076884,
+      "pred_std": 11.72142102921082
+    },
+    {
+      "target": "cci_t1",
+      "experiment": "climatology",
+      "is_baseline": true,
+      "mae": 8.14154445396903,
+      "rmse": 10.669042021232151,
+      "r2": 0.17236424272092832,
+      "pred_std": 3.8750088148055433
+    },
+    {
+      "target": "cci_t2",
+      "experiment": "persistence",
+      "is_baseline": true,
+      "mae": 9.58221673572744,
+      "rmse": 12.600663365353368,
+      "r2": -0.15161559757295118,
+      "pred_std": 11.72142102921082
+    },
+    {
+      "target": "cci_t2",
+      "experiment": "climatology",
+      "is_baseline": true,
+      "mae": 8.156421572685353,
+      "rmse": 10.672964295974893,
+      "r2": 0.1737892659104292,
+      "pred_std": 3.8754786285834744
+    },
+    {
+      "target": "cci_t3",
+      "experiment": "persistence",
+      "is_baseline": true,
+      "mae": 10.069971512430937,
+      "rmse": 13.383581252290867,
+      "r2": -0.29999203917396455,
+      "pred_std": 11.72142102921082
+    },
+    {
+      "target": "cci_t3",
+      "experiment": "climatology",
+      "is_baseline": true,
+      "mae": 8.15854605206517,
+      "rmse": 10.673619269383808,
+      "r2": 0.17316390401785686,
+      "pred_std": 3.8800815963829214
+    }
+  ],
+  "history_days": 30,
+  "warnings": [
+    "Margin over cci_xgboost (0.1416) is smaller than the typical year-to-year spread (0.2870); the two are not clearly separated, so simplicity and cost can decide between them."
+  ]
+}
