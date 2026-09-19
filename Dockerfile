@@ -1,8 +1,10 @@
 FROM python:3.11-slim
 
+# MODEL_DIR is kept outside /app: the application code has its own `models` package
+# (app/models/, the response schemas), which must not be mixed with the model artefacts.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    MODEL_DIR=/app/ml/model
+    MODEL_DIR=/models
 
 WORKDIR /app
 
@@ -13,8 +15,8 @@ COPY ./app/ ./
 RUN pip install --no-cache-dir uv && \
     uv pip install --system --no-cache .
 
-# Production artefacts: preprocessing pipeline + promoted CCI and WHC bundles.
-COPY ./ml/ ./ml/
+# Production artefacts: preprocessing pipeline + promoted CCI and WHC bundles (make artefacts).
+COPY ./models/ /models/
 
 EXPOSE 8080
 # Render provides PORT; 8080 is the local default.

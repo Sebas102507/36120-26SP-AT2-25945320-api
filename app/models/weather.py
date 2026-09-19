@@ -39,8 +39,8 @@ class ModelMetadata(BaseModel):
     prediction_type: str
     algorithm: str
     forecast_horizon: str
-    feature_list: List[str]
-    feature_importances: Dict[str, float] = Field(
+    features: List[str] = Field(description="Feature columns the deployed model(s) receive.")
+    feature_importance: Dict[str, float] = Field(
         description="Mean feature importance across horizons (empty for dummy baselines)."
     )
     performance_metrics: Dict[str, float] = Field(

@@ -80,10 +80,10 @@ def test_cci_metadata_reports_mean_and_per_horizon_metrics(tmp_path):
     described = ComfortClimatePredictor.from_directory(directory, FakeFeatures()).describe()
 
     assert described["target"] == "comfort_climate"
-    assert described["feature_list"] == COLUMNS
+    assert described["features"] == COLUMNS
     assert described["performance_metrics"]["mae"] == pytest.approx(2.0)
     assert described["performance_metrics"]["mae_h3"] == pytest.approx(3.0)
-    assert list(described["feature_importances"]) == ["cci", "whi"]
+    assert list(described["feature_importance"]) == ["cci", "whi"]
 
 
 # ----------------------------------------------------------------------------------------------

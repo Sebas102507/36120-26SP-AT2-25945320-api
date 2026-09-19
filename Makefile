@@ -2,9 +2,9 @@ SHELL := /bin/bash
 
 # Location of the experiments repository (override: make artefacts EXPERIMENTS=/path/to/repo)
 EXPERIMENTS ?= ../36120-26SP-AT2-25945320-experiments
-MODEL_DIR := ml/model
+MODEL_DIR := models
 
-.PHONY: install test run artefacts deploy down clean env
+.PHONY: install test run artefacts deploy down clean env smoke
 
 env:
 	@if [[ ! -e .env ]]; then cp .env.example .env; fi
@@ -18,7 +18,7 @@ test: install
 run: install
 	PYTHONPATH=app uv run uvicorn main:app --reload --host 0.0.0.0 --port 8080
 
-# Replace ml/model with the current production artefacts from the experiments repository:
+# Replace models/ with the current production artefacts from the experiments repository:
 # the fitted preprocessing pipeline and the promoted CCI and WHC bundles.
 artefacts:
 	@test -f $(EXPERIMENTS)/models/preprocessing/feature_pipeline.joblib || \
@@ -45,3 +45,10 @@ clean:
 	@find . -name '__pycache__' -prune -exec rm -rf {} \;
 	@find . -name '*.pyc' -delete
 	rm -rf .pytest_cache build dist *.egg-info
+
+# Smoke-test a running instance (local by default; override with URL=https://...onrender.com)
+URL ?= http://localhost:8080
+smoke:
+	curl -fsS "$(URL)/health" && echo
+	curl -fsS "$(URL)/predict/index/comfort_climate?date=2025-01-01" && echo
+	curl -fsS "$(URL)/predict/category/weather_hazard?date=2025-01-01" && echo

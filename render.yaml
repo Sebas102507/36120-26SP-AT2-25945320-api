@@ -6,6 +6,6 @@ services:
     healthCheckPath: /health
     envVars:
       - key: MODEL_DIR
-        value: /app/ml/model
+        value: /models
       - key: ARCHIVE_LAG_DAYS
         value: "5"

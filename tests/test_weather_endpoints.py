@@ -29,8 +29,8 @@ class FakePredictor:
 
 def metadata(target: str, algorithm: str, metrics: dict) -> dict:
     return {"target": target, "experiment": f"{target}_exp", "prediction_type": "regression",
-            "algorithm": algorithm, "forecast_horizon": "1 Day", "feature_list": ["cci"],
-            "feature_importances": {"cci": 1.0}, "performance_metrics": metrics}
+            "algorithm": algorithm, "forecast_horizon": "1 Day", "features": ["cci"],
+            "feature_importance": {"cci": 1.0}, "performance_metrics": metrics}
 
 
 def drift(target: str, status: str, drifted: list) -> dict:

@@ -181,8 +181,8 @@ class ModelBundle:
             "algorithm": self.metadata.get("algorithm", "unknown"),
             "forecast_horizon": f"{', '.join(map(str, self.horizons))} "
                                 f"Day{'s' if self.horizons != [1] else ''}",
-            "feature_list": list(self.metadata["feature_columns"]),
-            "feature_importances": dict(sorted(
+            "features": list(self.metadata["feature_columns"]),
+            "feature_importance": dict(sorted(
                 ((name, float(np.mean(v))) for name, v in importance.items()),
                 key=lambda item: item[1], reverse=True)),
             "performance_metrics": performance,
