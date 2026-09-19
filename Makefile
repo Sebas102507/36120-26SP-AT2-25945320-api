@@ -1,52 +1,47 @@
 SHELL := /bin/bash
 
-# Variables definitions
-# -----------------------------------------------------------------------------
+# Location of the experiments repository (override: make artefacts EXPERIMENTS=/path/to/repo)
+EXPERIMENTS ?= ../36120-26SP-AT2-25945320-experiments
+MODEL_DIR := ml/model
 
-ifeq ($(TIMEOUT),)
-TIMEOUT := 60
-endif
+.PHONY: install test run artefacts deploy down clean env
 
-# Target section and Global definitions
-# -----------------------------------------------------------------------------
-.PHONY: all clean test install run deploy down
+env:
+	@if [[ ! -e .env ]]; then cp .env.example .env; fi
 
-all: clean test install run deploy down
-
-venv:
-	uv venv .venv
+install: env
+	uv sync --extra dev
 
 test: install
-	uv run pytest tests -vv --show-capture=all
+	uv run pytest -vv
 
-install: generate_dot_env venv
-	pip install uv --break-system-packages
-	uv pip install -e ".[dev]"
+run: install
+	PYTHONPATH=app uv run uvicorn main:app --reload --host 0.0.0.0 --port 8080
 
-run: venv
-	PYTHONPATH=app/ uv run uvicorn main:app --reload --host 0.0.0.0 --port 8080
+# Replace ml/model with the current production artefacts from the experiments repository:
+# the fitted preprocessing pipeline and the promoted CCI and WHC bundles.
+artefacts:
+	@test -f $(EXPERIMENTS)/models/preprocessing/feature_pipeline.joblib || \
+		(echo "Run the preprocessing notebook in $(EXPERIMENTS) first." && exit 1)
+	@test -d $(EXPERIMENTS)/models/comfort_climate/production || \
+		(echo "Run the cci_comparison notebook first." && exit 1)
+	@test -d $(EXPERIMENTS)/models/weather_hazard/production || \
+		(echo "Run the whc_comparison notebook first." && exit 1)
+	rm -rf $(MODEL_DIR)
+	mkdir -p $(MODEL_DIR)
+	cp -R $(EXPERIMENTS)/models/preprocessing $(MODEL_DIR)/preprocessing
+	cp -R $(EXPERIMENTS)/models/comfort_climate/production $(MODEL_DIR)/comfort_climate
+	cp -R $(EXPERIMENTS)/models/weather_hazard/production $(MODEL_DIR)/weather_hazard
+	@echo "Artefacts copied into $(MODEL_DIR)."
 
-deploy: generate_dot_env
-	docker-compose build
-	docker-compose up -d
+deploy: env
+	docker compose build
+	docker compose up -d
 
 down:
-	docker-compose down
-
-generate_dot_env:
-	@if [[ ! -e .env ]]; then \
-		cp .env.example .env; \
-	fi
+	docker compose down
 
 clean:
-	@find . -name '*.pyc' -exec rm -rf {} \;
-	@find . -name '__pycache__' -exec rm -rf {} \;
-	@find . -name 'Thumbs.db' -exec rm -rf {} \;
-	@find . -name '*~' -exec rm -rf {} \;
-	rm -rf .cache
-	rm -rf build
-	rm -rf dist
-	rm -rf *.egg-info
-	rm -rf htmlcov
-	rm -rf .tox/
-	rm -rf docs/_build
+	@find . -name '__pycache__' -prune -exec rm -rf {} \;
+	@find . -name '*.pyc' -delete
+	rm -rf .pytest_cache build dist *.egg-info

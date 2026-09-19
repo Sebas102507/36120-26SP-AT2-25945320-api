@@ -1,223 +1,164 @@
+"""HTTP endpoints of the Weather Intelligence API.
+
+| Method | Path                               | Purpose                               |
+|--------|------------------------------------|---------------------------------------|
+| GET    | /                                  | Project overview (self-documentation) |
+| GET    | /health                            | Liveness check                        |
+| GET    | /predict/index/comfort_climate     | CCI for the next three days           |
+| GET    | /predict/category/weather_hazard   | WHC exactly seven days ahead          |
+| GET    | /model-metadata                    | Metadata of both deployed models      |
+| GET    | /monitoring/drift                  | Served data vs training distribution  |
+
+Error responses: 400 for a malformed or unsupported date, 422 when ``date`` is missing,
+502 when Open-Meteo cannot supply the required history, 503 when a model is not loaded.
+"""
+
+from __future__ import annotations
+
 from datetime import date, datetime, timedelta
-import logging
-from typing import List
 
 from core.config import (
+    ARCHIVE_LAG_DAYS,
     GITHUB_URL,
     PREDICTION_MAX_DATE,
     PREDICTION_MIN_DATE,
+    PROJECT_NAME,
+    STUDENT_ID,
+    STUDENT_NAME,
     VERSION,
 )
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request
 from models.weather import (
+    DriftReport,
     ForecastResponse,
     HealthCheckResponse,
     ModelMetadata,
     ProjectOverview,
 )
-from services.comfort_climate import WeatherDataError
+from services.features import WeatherDataError
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
-DATE_FORMAT = "%Y-%m-%d"
-FEATURES = [
-    "temperature",
-    "humidity",
-    "wind_speed",
-    "precipitation",
-    "pressure",
-]
-
-
-def parse_forecast_date(value: str) -> date:
-    """Parse and range-check a forecast date supplied as a query parameter."""
-    try:
-        parsed_date = datetime.strptime(value, DATE_FORMAT).date()
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid date. Use the YYYY-MM-DD format.",
-        ) from error
-
-    min_date = datetime.strptime(PREDICTION_MIN_DATE, DATE_FORMAT).date()
-    max_date = datetime.strptime(PREDICTION_MAX_DATE, DATE_FORMAT).date()
-    if not min_date <= parsed_date <= max_date:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Date is outside the supported prediction range: "
-                f"{min_date.isoformat()} to {max_date.isoformat()}."
-            ),
-        )
-    return parsed_date
-
-
-def require_models_ready(request: Request) -> None:
-    """Prevent prediction requests when non-dummy model loading failed."""
-    if not getattr(request.app.state, "prediction_models_ready", True):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Prediction models are unavailable. Please try again later.",
-        )
-
-
-def require_weather_hazard_model(request: Request) -> None:
-    if not getattr(request.app.state, "weather_hazard_model_ready", False):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Weather hazard prediction model is unavailable. Please try again later.",
-        )
-
-
-@router.get("/", response_model=ProjectOverview, tags=["project"])
-async def project_overview() -> ProjectOverview:
-    return ProjectOverview(
-        title="Weather Intelligence API",
-        description="Forecasts comfort climate and weather hazard conditions.",
-        version=VERSION,
-        github_url=GITHUB_URL,
-        endpoints=[
-            "GET /",
-            "GET /health",
-            "GET /predict/index/comfort_climate?date=YYYY-MM-DD",
-            "GET /predict/category/weather_hazard?date=YYYY-MM-DD",
-            "GET /model-metadata",
-        ],
-        prediction_targets=[
-            {
-                "target": "comfort_climate",
-                "description": "Comfort Climate Index (CCI), D+1 through D+3.",
-            },
-            {
-                "target": "weather_hazard",
-                "description": "Weather Hazard Category (WHC), D+7.",
-            },
-        ],
-    )
-
-
-@router.get("/health", response_model=HealthCheckResponse, tags=["health"])
-async def health_check() -> HealthCheckResponse:
-    """Return a cheap liveness response without model or database access."""
-    return HealthCheckResponse(
-        status="healthy", message="Weather Intelligence API is running"
-    )
-
-
-@router.get(
+ENDPOINTS = [
+    "/",
+    "/health",
     "/predict/index/comfort_climate",
-    response_model=ForecastResponse,
-    tags=["predictions"],
-)
-async def predict_comfort_climate(
-    request: Request,
-    date: str = Query(..., description="Forecast base date (YYYY-MM-DD)"),
-) -> ForecastResponse:
-    input_date = parse_forecast_date(date)
-    logger.info("Received comfort_climate prediction request for %s", input_date)
-    require_models_ready(request)
-    predictor = request.app.state.cci_predictor
-    try:
-        predictions = predictor.predict(input_date)
-    except WeatherDataError as error:
-        logger.warning("CCI prediction failed for %s: %s", input_date, error)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(error),
-        ) from error
-    return ForecastResponse(
-        input_date=input_date,
-        predictions={"comfort_climate": predictions},
-    )
-
-
-@router.get(
     "/predict/category/weather_hazard",
-    response_model=ForecastResponse,
-    tags=["predictions"],
-)
-async def predict_weather_hazard(
-    request: Request,
-    date: str = Query(..., description="Forecast base date (YYYY-MM-DD)"),
-) -> ForecastResponse:
-    input_date = parse_forecast_date(date)
-    require_weather_hazard_model(request)
-    predictor = request.app.state.whc_predictor
+    "/model-metadata",
+    "/monitoring/drift",
+]
+DATE_QUERY = Query(..., description="Base date in YYYY-MM-DD format.", examples=["2025-01-01"])
+
+
+# ----------------------------------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------------------------------
+
+def parse_date(value: str) -> date:
+    """Parse ``YYYY-MM-DD`` and check it lies inside the supported range (400 otherwise)."""
     try:
-        predictions = predictor.predict(input_date)
-    except WeatherDataError as error:
-        logger.warning("WHC prediction failed for %s: %s", input_date, error)
+        parsed = datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as error:
+        raise HTTPException(status_code=400,
+                            detail="Invalid date. Use the YYYY-MM-DD format.") from error
+
+    earliest = date.fromisoformat(PREDICTION_MIN_DATE)
+    latest = min(date.fromisoformat(PREDICTION_MAX_DATE),
+                 date.today() - timedelta(days=ARCHIVE_LAG_DAYS))
+    if not earliest <= parsed <= latest:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(error),
-        ) from error
-    return ForecastResponse(
-        input_date=input_date,
-        predictions={"weather_hazard": predictions},
-    )
-
-
-@router.get("/model-metadata", response_model=List[ModelMetadata], tags=["models"])
-async def model_metadata(request: Request) -> List[ModelMetadata]:
-    manifest = getattr(request.app.state, "cci_manifest", None)
-    metadata = getattr(request.app.state, "cci_metadata", None)
-    cci_model = _cci_model_metadata(manifest, metadata)
-    return [
-        cci_model,
-        ModelMetadata(
-            target="weather_hazard",
-            prediction_type="multiclass classification",
-            algorithm="Random Forest Classifier",
-            forecast_horizon="D+7",
-            feature_list=FEATURES,
-            feature_importances={
-                "precipitation": 0.31,
-                "wind_speed": 0.27,
-                "temperature": 0.18,
-                "humidity": 0.15,
-                "pressure": 0.09,
-            },
-            performance_metrics={"accuracy": 0.84, "macro_f1": 0.79},
-        ),
-    ]
-
-
-def _cci_model_metadata(
-    manifest: dict | None, metadata: dict | None
-) -> ModelMetadata:
-    """Translate the selected experiment bundle into the API metadata schema."""
-    if not manifest or not metadata:
-        return ModelMetadata(
-            target="comfort_climate",
-            prediction_type="regression",
-            algorithm="Unavailable",
-            forecast_horizon="D+1 to D+3",
-            feature_list=[],
-            feature_importances={},
-            performance_metrics={},
+            status_code=400,
+            detail=(f"Date {parsed.isoformat()} is outside the supported prediction range "
+                    f"({earliest.isoformat()} to {latest.isoformat()}). The Open-Meteo archive "
+                    f"lags real time by about {ARCHIVE_LAG_DAYS} days."),
         )
-    horizons = manifest.get("horizons_days", [1, 2, 3])
-    feature_list = metadata.get("sequence_features") or metadata.get("feature_columns", [])
-    validation = metadata.get("validation_metrics", {})
-    if not validation:
-        validation = {
-            model["target_column"]: model["validation_metrics"]
-            for model in metadata.get("models", [])
-            if "target_column" in model and "validation_metrics" in model
-        }
-    metric_names = ("mae", "rmse")
-    metrics = {
-        name: sum(values[name] for values in validation.values()) / len(validation)
-        for name in metric_names
-        if validation and all(name in values for values in validation.values())
-    }
-    return ModelMetadata(
-        target=str(manifest["target"]),
-        prediction_type=str(metadata.get("prediction_type", "regression")),
-        algorithm=str(metadata.get("architecture") or metadata.get("algorithm", "Unknown")),
-        forecast_horizon=f"D+{horizons[0]} to D+{horizons[-1]}",
-        feature_list=feature_list,
-        feature_importances={},
-        performance_metrics=metrics,
+    return parsed
+
+
+def get_predictor(request: Request, name: str):
+    """Return a loaded predictor from application state, or fail with 503."""
+    predictor = getattr(request.app.state, name, None)
+    if predictor is None:
+        raise HTTPException(status_code=503,
+                            detail="Prediction models are unavailable. Check the server logs.")
+    return predictor
+
+
+def forecast(request: Request, predictor_name: str, target: str, value: str) -> ForecastResponse:
+    """Shared body of both prediction endpoints."""
+    day = parse_date(value)
+    predictor = get_predictor(request, predictor_name)
+    try:
+        predictions = predictor.predict(day)
+    except WeatherDataError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return ForecastResponse(input_date=day, predictions={target: predictions})
+
+
+# ----------------------------------------------------------------------------------------------
+# Endpoints
+# ----------------------------------------------------------------------------------------------
+
+@router.get("/", response_model=ProjectOverview, tags=["overview"])
+def project_overview() -> ProjectOverview:
+    """Project title, description, endpoints, prediction targets and repository link."""
+    return ProjectOverview(
+        project=PROJECT_NAME,
+        description=(
+            "Machine learning services for Sydney weather forecasting: a regression model for "
+            "the Climate Comfort Index over the next three days and a classifier for the "
+            "Weather Hazard Category seven days ahead, both built from Open-Meteo "
+            "historical observations. Interactive documentation is available at /docs."
+        ),
+        version=VERSION,
+        student=f"{STUDENT_NAME} ({STUDENT_ID})",
+        github=GITHUB_URL,
+        endpoints=ENDPOINTS,
+        prediction_targets=[
+            {"target": "Climate Comfort Index (0-100)",
+             "endpoint": "/predict/index/comfort_climate?date=YYYY-MM-DD",
+             "prediction_type": "regression", "forecast_horizon": "+1, +2 and +3 days"},
+            {"target": "Weather Hazard Category",
+             "endpoint": "/predict/category/weather_hazard?date=YYYY-MM-DD",
+             "prediction_type": "multiclass classification", "forecast_horizon": "+7 days"},
+        ],
     )
+
+
+@router.get("/health", response_model=HealthCheckResponse, tags=["overview"])
+def health() -> HealthCheckResponse:
+    """Liveness check. Does not depend on the models, so it answers even if they fail to load."""
+    return HealthCheckResponse(status="healthy", message=f"{PROJECT_NAME} is running")
+
+
+@router.get("/predict/index/comfort_climate", response_model=ForecastResponse,
+            tags=["predictions"])
+def predict_comfort_climate(request: Request, date: str = DATE_QUERY) -> ForecastResponse:
+    """Climate Comfort Index (0-100) for the three days after ``date``."""
+    return forecast(request, "cci_predictor", "comfort_climate", date)
+
+
+@router.get("/predict/category/weather_hazard", response_model=ForecastResponse,
+            tags=["predictions"])
+def predict_weather_hazard(request: Request, date: str = DATE_QUERY) -> ForecastResponse:
+    """Weather Hazard Category exactly seven days after ``date``."""
+    return forecast(request, "whc_predictor", "weather_hazard", date)
+
+
+@router.get("/model-metadata", response_model=list[ModelMetadata], tags=["models"])
+def model_metadata(request: Request) -> list[dict]:
+    """Target, algorithm, horizon, features, importances and validation metrics per model."""
+    return [get_predictor(request, name).describe()
+            for name in ("cci_predictor", "whc_predictor")]
+
+
+@router.get("/monitoring/drift", response_model=list[DriftReport], tags=["models"])
+def drift(request: Request) -> list[dict]:
+    """Compare the feature rows served since start-up with each model's training data.
+
+    A feature counts as drifted when more than 10% of its recent values fall outside the
+    1st-99th percentile range seen in training: the model is then being asked about conditions
+    it was not trained on, which is the signal to retrain.
+    """
+    return [get_predictor(request, name).drift()
+            for name in ("cci_predictor", "whc_predictor")]

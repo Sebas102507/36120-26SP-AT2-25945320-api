@@ -2,7 +2,10 @@ services:
   - type: web
     name: weather-intelligence-api
     runtime: docker
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
-      - key: USE_DUMMY_PREDICTIONS
-        value: "false"
+      - key: MODEL_DIR
+        value: /app/ml/model
+      - key: ARCHIVE_LAG_DAYS
+        value: "5"
